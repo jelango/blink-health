@@ -58,16 +58,22 @@ class ZendeskConsumer(object):
     def read(self):
         done = False
         while not done:
-            req_age_seconds = datetime.now().timestamp() - self.end_time
-            if req_age_seconds < 600:
-                logging.debug(
-                    'Too early to request data export, %s instead of minimal %s seconds difference, waiting...',
-                    req_age_seconds, 600)
-                time.sleep(req_age_seconds)
+
+            #TBD needs Ilgar to verify these commented lines
+            #req_age_seconds = datetime.now().timestamp() - self.end_time
+            #if req_age_seconds < 600:
+            #    logging.debug(
+            #        'Too early to request data export, %s instead of minimal %s seconds difference, waiting...',
+            #        req_age_seconds, 600)
+            #    time.sleep(req_age_seconds)
+
+
 
             next_page = self.next_page or self.url
             headers, data = self.get(next_page)
-            done = data['count'] < 1000
+
+            # TBD needs Ilgar to verify this commented line
+            #done = data['count'] < 1000
 
             self.next_page = data['next_page']
             self.end_time = data['end_time']
@@ -76,6 +82,11 @@ class ZendeskConsumer(object):
                 yield [{key: d[key] for key in self.fields_to_keep} for d in data[self.data_key]]
             else:
                 yield data[self.data_key]
+
+
+            ## TBD needs Ilgar to verify this added line
+            logging.debug('Sleep 60 secs..')
+            time.sleep(60)
 
 
 class IncrementalTicketConsumer(ZendeskConsumer):
