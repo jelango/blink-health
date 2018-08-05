@@ -1,9 +1,11 @@
+import abc
 import logging
 import os
 import pickle
 import time
 from collections import OrderedDict
 from datetime import datetime
+from enum import Enum
 
 import pandas as pd
 import requests
@@ -14,8 +16,25 @@ MIN_INCREMENTAL_EXPORT_AGE_SECONDS = 600
 MAX_INCREMENTAL_EXPORT_BATCH_SIZE = 1000
 
 
+class ZendeskConsumerType(Enum):
+    tickets = 1
+    calls = 2
+
+    def __str__(self):
+        return self.name
+
+    def to_consumer(self, account, token):
+        if self == self.tickets:
+            return IncrementalTicketConsumer(account, token)
+
+        if self == self.calls:
+            return IncrementalCallConsumer(account, token)
+
+        raise ValueError('Unexpected consumer type %s', self)
+
+
 class ZendeskConsumer(object):
-    def __init__(self, url, account, token, data_key, fields_to_keep, timestamp_fields=['created_at', 'updated_at']):
+    def __init__(self, url, account, token, data_key, fields_to_keep, timestamp_fields=('created_at', 'updated_at')):
         self.state_path = STATE_PATH.format(self.__class__.__name__)
         logging.info('Keeping state in %s', self.state_path)
 
@@ -26,6 +45,10 @@ class ZendeskConsumer(object):
         self.fields_to_keep = fields_to_keep
         self.timestamp_fields = timestamp_fields
         self.next_page, self.end_time, self.incomplete_batch = self._load_state()
+
+    @abc.abstractmethod
+    def consumer_type(self):
+        pass
 
     def _load_state(self):
         if os.path.exists(self.state_path):
@@ -102,7 +125,7 @@ class ZendeskConsumer(object):
             else:
                 filtered_data = data[self.data_key]
 
-            # whatever else pre-processing of the data should happen here
+            # additional pre-processing of the data should happen here
 
             df = pd.DataFrame.from_records(filtered_data)
             for field in self.timestamp_fields:
@@ -132,6 +155,9 @@ class IncrementalTicketConsumer(ZendeskConsumer):
                           'priority',
                           'status'])
 
+    def consumer_type(self):
+        return ZendeskConsumerType.tickets
+
 
 class IncrementalCallConsumer(ZendeskConsumer):
     def __init__(self, account, token):
@@ -140,3 +166,6 @@ class IncrementalCallConsumer(ZendeskConsumer):
                          token,
                          'calls',
                          [])
+
+        def consumer_type(self):
+            return ZendeskConsumerType.calls

@@ -1,24 +1,6 @@
 import argparse
-from enum import Enum
 
-from blinkhealth_zendesk.consumer import IncrementalCallConsumer, IncrementalTicketConsumer
-
-
-class ZendeskConsumerType(Enum):
-    tickets = 1
-    calls = 2
-
-    def __str__(self):
-        return self.name
-
-    def to_consumer(self, account, token):
-        if self == self.tickets:
-            return IncrementalTicketConsumer(account, token)
-
-        if self == self.calls:
-            return IncrementalCallConsumer(account, token)
-
-        raise ValueError('Unexpected consumer type %s', self)
+from blinkhealth_zendesk.consumer import ZendeskConsumerType
 
 
 def get_args():
