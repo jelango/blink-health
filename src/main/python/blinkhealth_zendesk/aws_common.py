@@ -1,6 +1,8 @@
-import boto3
 import json
 from datetime import datetime
+
+import boto3
+
 
 def writetoS3FromFile(bucketName, srcFileLocation, tgtKeyName):
     s3 = boto3.resource('s3')
@@ -8,6 +10,7 @@ def writetoS3FromFile(bucketName, srcFileLocation, tgtKeyName):
 
     with open(srcFileLocation, 'rb') as data:
         bucket.upload_fileobj(data, tgtKeyName)
+
 
 def writeZenDataToS3(bucketName, data, dataKey):
     s3 = boto3.resource('s3')
@@ -18,7 +21,3 @@ def writeZenDataToS3(bucketName, data, dataKey):
     s3key = datetime.now().strftime("yyyy=%Y/mm=%m/dd=%d/hh=%H/key={}/%S%M%s.json").format(dataKey)
 
     bucket.put_object(Key=s3key, Body=jsondata)
-
-
-if __name__ == '__main__':
-    writetoS3FromFile('pythian-jaywork','/Users/jay/test.psv', 'mykey')
