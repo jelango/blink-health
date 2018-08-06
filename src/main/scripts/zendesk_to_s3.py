@@ -19,11 +19,10 @@ if __name__ == '__main__':
                 # write each complete group to individual s3 bucket prefix
                 # all but last group are complete, because incremental export data is ordered by timestamp
                 for key, sdf in dg[0:-1]:
-                    # sdf['year'] = sdf['updated_at'].apply(lambda d: d.year)
-                    # sdf['month'] = sdf['updated_at'].apply(lambda d: d.month)
-                    # sdf['day'] = sdf['updated_at'].apply(lambda d: d.day)
-                    # sdf['hour'] = sdf['updated_at'].apply(lambda d: d.hour)
-                    # del sdf['updated_at']
+                    # sdf['year'] = key[0].year
+                    # sdf['month'] = key[0].month
+                    # sdf['day'] = key[0].day
+                    # sdf['hour'] = key[1]
 
                     s3_path = sdf.iloc[0]['updated_at'].strftime(
                         '{}/year=%Y/month=%m/day=%d/hour=%H/key={}/%S%M%s.parquet').format(
