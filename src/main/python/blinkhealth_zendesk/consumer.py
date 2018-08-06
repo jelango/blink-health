@@ -156,7 +156,7 @@ class IncrementalTicketConsumer(ZendeskConsumer):
                           'status'])
 
     def consumer_type(self):
-        return ZendeskConsumerType.tickets
+        return str(ZendeskConsumerType.tickets)
 
 
 class IncrementalCallConsumer(ZendeskConsumer):
@@ -167,5 +167,5 @@ class IncrementalCallConsumer(ZendeskConsumer):
                          'calls',
                          [])
 
-        def consumer_type(self):
-            return ZendeskConsumerType.calls
+    def consumer_type(self):
+        return str(ZendeskConsumerType.calls)
