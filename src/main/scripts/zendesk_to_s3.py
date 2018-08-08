@@ -71,7 +71,7 @@ if __name__ == '__main__':
                 # sdf['hour'] = key[1]
 
                 data_path = sdf.iloc[0]['updated_at'].strftime(
-                    '{}/year=%Y/month=%m/day=%d/hour=%H/key={}/M%%S%s.parquet').format(
+                    '{}/{}/year=%Y/month=%m/day=%d/hour=%H/%S%M%s.parquet').format(
                     data_url, consumer.consumer_type())
 
                 # check for local execution

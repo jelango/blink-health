@@ -12,8 +12,8 @@ Python `virtualenv-3.x` binary should be available on the path.
 Running export to S3:
 
 ```bash
-zendesk_to_s3.py calls -a support@blinkhealth.com -t 06is94FOOrtqmf3VVkP2WOPz40y94LbVEUiC1nDF -d s3://blink-dw-data-zendesk/topics/calls -c s3://blink-dw-data-zendesk/configuration
-zendesk_to_s3.py tickets -a support@blinkhealth.com -t 06is94FOOrtqmf3VVkP2WOPz40y94LbVEUiC1nDF -d s3://blink-dw-data-zendesk/topics/tickets -c s3://blink-dw-data-zendesk/configuration
+zendesk_to_s3.py calls -a support@blinkhealth.com -t 06is94FOOrtqmf3VVkP2WOPz40y94LbVEUiC1nDF -d s3://blink-dw-data-zendesk/topics -c s3://blink-dw-data-zendesk/configuration
+zendesk_to_s3.py tickets -a support@blinkhealth.com -t 06is94FOOrtqmf3VVkP2WOPz40y94LbVEUiC1nDF -d s3://blink-dw-data-zendesk/topics -c s3://blink-dw-data-zendesk/configuration
 ```
 
 Create AWS Athena table:
