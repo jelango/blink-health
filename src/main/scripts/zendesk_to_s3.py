@@ -27,7 +27,7 @@ if __name__ == '__main__':
     logging.getLogger().setLevel(logging.INFO)
 
     conf = {
-        'calls': {
+        'tickets': {
             'data_key': 'tickets',
             'timestamp_fields': (
                 'created_at',
@@ -44,7 +44,7 @@ if __name__ == '__main__':
                 'priority',
                 'status')
         },
-        'tickets': {
+        'calls': {
             'data_key': 'calls',
             'timestamp_fields': (
                 'created_at',
