@@ -1,23 +1,29 @@
-import json
-from datetime import datetime
+from urllib.parse import urlparse
+from botocore.exceptions import ClientError
 
+import json
 import boto3
 
 
-def writetoS3FromFile(bucketName, srcFileLocation, tgtKeyName):
+def write_to_s3(url, data):
+    parts = urlparse(url)
+    bucket = parts.netloc
+    key = parts.path.lstrip('/')
+
     s3 = boto3.resource('s3')
-    bucket = s3.Bucket(bucketName)
-
-    with open(srcFileLocation, 'rb') as data:
-        bucket.upload_fileobj(data, tgtKeyName)
+    s3.Object(bucket, key).put(Body=json.dumps(data))
 
 
-def writeZenDataToS3(bucketName, data, dataKey):
+def read_from_s3(url, defaults):
+    parts = urlparse(url)
+    bucket = parts.netloc
+    key = parts.path.lstrip('/')
+
     s3 = boto3.resource('s3')
-    bucket = s3.Bucket(bucketName)
-
-    jsondata = json.dumps(data)
-
-    s3key = datetime.now().strftime("yyyy=%Y/mm=%m/dd=%d/hh=%H/key={}/%S%M%s.json").format(dataKey)
-
-    bucket.put_object(Key=s3key, Body=jsondata)
+    try:
+        return json.loads(s3.Object(bucket, key).get()['Body'].read().decode("utf-8"))
+    except ClientError as ex:
+        if ex.response['Error']['Code'] == 'NoSuchKey':
+            return defaults
+        else:
+            raise ex

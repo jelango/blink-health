@@ -10,7 +10,8 @@ def get_args():
                         choices=list(ZendeskConsumerType))
     parser.add_argument('-a', '--account', type=str, required=True, help='API account username')
     parser.add_argument('-t', '--token', type=str, required=True, help='API token')
-    parser.add_argument('-b', '--bucket', type=str, required=True, help='S3 Bucket Name')
+    parser.add_argument('-d', '--data_url', type=str, required=True, help='Data URL')
+    parser.add_argument('-c', '--configuration_url', type=str, required=True, help='Configuration URL')
 
     args = parser.parse_args()
-    return args.consumer_type.to_consumer(args.account, args.token), args.bucket
+    return args.consumer_type.to_consumer(args.configuration_url, args.account, args.token), args.data_url

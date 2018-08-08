@@ -10,9 +10,10 @@ from enum import Enum
 import pandas as pd
 import requests
 
+from blinkhealth_zendesk.aws_common import write_to_s3, read_from_s3
+
 BASE_URL = 'https://blinkhealth.zendesk.com/api/v2'
-STATE_PATH = '/tmp/zendesk-consumer-state-{}.pkl'
-MIN_INCREMENTAL_EXPORT_AGE_SECONDS = 600
+MIN_INCREMENTAL_EXPORT_AGE_SECONDS = 300
 MAX_INCREMENTAL_EXPORT_BATCH_SIZE = 1000
 
 
@@ -23,60 +24,61 @@ class ZendeskConsumerType(Enum):
     def __str__(self):
         return self.name
 
-    def to_consumer(self, account, token):
+    def to_consumer(self, configuration_url, account, token):
         if self == self.tickets:
-            return IncrementalTicketConsumer(account, token)
+            return IncrementalTicketConsumer(configuration_url, account, token)
 
         if self == self.calls:
-            return IncrementalCallConsumer(account, token)
+            return IncrementalCallConsumer(configuration_url, account, token)
 
         raise ValueError('Unexpected consumer type %s', self)
 
 
 class ZendeskConsumer(object):
-    def __init__(self, url, account, token, data_key, fields_to_keep, timestamp_fields=('created_at', 'updated_at')):
-        self.state_path = STATE_PATH.format(self.__class__.__name__)
+    def __init__(self, configuration_url, api_url, account, token):
+        self.state_path = '{}/zendesk-consumer-state-{}.json'.format(configuration_url, self.__class__.__name__)
         logging.info('Keeping state in %s', self.state_path)
 
-        self.url = url
+        self.api_url = api_url
         self.account = account
         self.token = token
-        self.data_key = data_key
-        self.fields_to_keep = fields_to_keep
-        self.timestamp_fields = timestamp_fields
-        self.next_page, self.end_time, self.incomplete_batch = self._load_state()
+        self.next_page, self.end_time = self._load_state()
 
     @abc.abstractmethod
     def consumer_type(self):
         pass
 
     def _load_state(self):
-        if os.path.exists(self.state_path):
-            state = pickle.load(open(self.state_path, 'rb'))
+        default_state = {
+            'next_page': None,
+            'end_time': 0
+        }
+        if self.state_path.startswith('s3'):
+            state = read_from_s3(self.state_path, default_state)
         else:
-            state = {
-                'next_page': None,
-                'end_time': 0,
-                'incomplete_batch': []
-            }
-        return state['next_page'], state['end_time'], state['incomplete_batch']
+            if os.path.exists(self.state_path):
+                state = pickle.load(open(self.state_path, 'rb'))
+            else:
+                state = default_state
+
+        return state['next_page'], state['end_time']
 
     def _store_state(self):
         state = {
             'next_page': self.next_page,
-            'end_time': self.end_time,
-            'incomplete_batch': self.incomplete_batch
+            'end_time': self.end_time
         }
         logging.debug('Storing current state {}'.format(state))
-        pickle.dump(state, open(self.state_path, 'wb'))
 
-    def checkpoint(self, incomplete_batch):
+        if self.state_path.startswith('s3'):
+            write_to_s3(self.state_path, state)
+        else:
+            pickle.dump(state, open(self.state_path, 'wb'))
+
+    def checkpoint(self):
         """
-        Store current export state, i.e. timestamp and counts and incomplete dataset.
-        Incomplete dataset is the dataset for the last hour,
-        as it is unknown if there is anything left for the last hour in the next export batch.
+        Store current export state, i.e. timestamp and counts.
         """
-        self.incomplete_batch = incomplete_batch
         self._store_state()
 
     def get(self, url):
@@ -86,7 +88,7 @@ class ZendeskConsumer(object):
         :param url:
         :return:
         """
-        response = requests.get(url, auth=('{}/token'.format(self.account), self.token))
+        response = requests.get(url, auth=('{}/token'.format(self.account), self.token), timeout=15)
 
         if response.status_code == 429:
             logging.warning('Rate limit hit, retrying after: %s', response.headers['Retry-After'])
@@ -112,7 +114,7 @@ class ZendeskConsumer(object):
                     req_age_seconds, MIN_INCREMENTAL_EXPORT_AGE_SECONDS)
                 time.sleep(req_age_seconds)
 
-            next_page = self.next_page or self.url
+            next_page = self.next_page or self.api_url
             headers, data = self.get(next_page)
 
             done = data['count'] < MAX_INCREMENTAL_EXPORT_BATCH_SIZE
@@ -120,52 +122,26 @@ class ZendeskConsumer(object):
             self.next_page = data['next_page']
             self.end_time = data['end_time']
 
-            if self.fields_to_keep:
-                filtered_data = [{key: d[key] for key in self.fields_to_keep} for d in data[self.data_key]]
-            else:
-                filtered_data = data[self.data_key]
-
-            # additional pre-processing of the data should happen here
-
-            df = pd.DataFrame.from_records(filtered_data)
-            for field in self.timestamp_fields:
-                df[field] = pd.to_datetime(df[field])
-
-            if self.incomplete_batch:
-                # preprend whatever was available from the previous read
-                df = pd.DataFrame.from_records(self.incomplete_batch).append(df)
-                self.incomplete_batch = []
-
-            yield df
+            yield data
 
 
 class IncrementalTicketConsumer(ZendeskConsumer):
-    def __init__(self, account, token):
-        super().__init__('{}/incremental/tickets.json?start_time=0&include=users'.format(BASE_URL),
+    def __init__(self, configuration_url, account, token):
+        super().__init__(configuration_url,
+                         '{}/incremental/tickets.json?start_time=0&include=users'.format(BASE_URL),
                          account,
-                         token,
-                         'tickets',
-                         ['id',
-                          'external_id',
-                          'created_at',
-                          'updated_at',
-                          'type',
-                          'subject',
-                          'description',
-                          'priority',
-                          'status'])
+                         token)
 
     def consumer_type(self):
         return str(ZendeskConsumerType.tickets)
 
 
 class IncrementalCallConsumer(ZendeskConsumer):
-    def __init__(self, account, token):
-        super().__init__('{}/channels/voice/incremental/calls.json?start_time=0&include=users'.format(BASE_URL),
+    def __init__(self, configuration_url, account, token):
+        super().__init__(configuration_url,
+                         '{}/channels/voice/incremental/calls.json?start_time=0&include=users'.format(BASE_URL),
                          account,
-                         token,
-                         'calls',
-                         [])
+                         token)
 
     def consumer_type(self):
         return str(ZendeskConsumerType.calls)
