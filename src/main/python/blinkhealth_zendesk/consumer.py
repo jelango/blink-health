@@ -3,6 +3,7 @@ import logging
 import os
 import pickle
 import time
+import json
 from collections import OrderedDict
 from datetime import datetime
 from enum import Enum
@@ -47,6 +48,11 @@ class ZendeskConsumer(object):
     @abc.abstractmethod
     def consumer_type(self):
         pass
+
+    @abc.abstractmethod
+    def process_raw(self, data):
+        pass
+
 
     def _load_state(self):
         default_state = {
@@ -122,6 +128,9 @@ class ZendeskConsumer(object):
             self.next_page = data['next_page']
             self.end_time = data['end_time']
 
+            #for dataItem in self.process_raw(data):
+            #    yield dataItem
+
             yield data
 
 
@@ -135,6 +144,11 @@ class IncrementalTicketConsumer(ZendeskConsumer):
     def consumer_type(self):
         return str(ZendeskConsumerType.tickets)
 
+    def process_raw(self, data):
+        tickets = data['tickets']
+        for ticket in tickets:
+            #print("ticket..." + str(ticket["id"]))
+            yield ticket
 
 class IncrementalCallConsumer(ZendeskConsumer):
     def __init__(self, configuration_url, account, token):
@@ -145,3 +159,10 @@ class IncrementalCallConsumer(ZendeskConsumer):
 
     def consumer_type(self):
         return str(ZendeskConsumerType.calls)
+
+
+    def process_raw(self, data):
+        calls = data['calls']
+        for call in calls:
+            #print("calls..." + str(call["id"]))
+            yield call

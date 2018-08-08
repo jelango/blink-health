@@ -4,6 +4,8 @@ from botocore.exceptions import ClientError
 import json
 import boto3
 
+streamName = 'zen-datastream'
+kinesis_client = boto3.client('kinesis', region_name='us-west-2')
 
 def write_to_s3(url, data):
     parts = urlparse(url)
@@ -27,3 +29,10 @@ def read_from_s3(url, defaults):
             return defaults
         else:
             raise ex
+
+
+def put_to_stream(partid, property_value):
+    put_response = kinesis_client.put_record(
+                        StreamName=streamName,
+                        Data=json.dumps(property_value),
+                        PartitionKey=partid)
