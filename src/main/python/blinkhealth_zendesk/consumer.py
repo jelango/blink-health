@@ -88,7 +88,7 @@ class ZendeskConsumer(object):
         :param url:
         :return:
         """
-        response = requests.get(url, auth=('{}/token'.format(self.account), self.token), timeout=15)
+        response = requests.get(url, auth=('{}/token'.format(self.account), self.token), timeout=120)
 
         if response.status_code == 429:
             logging.warning('Rate limit hit, retrying after: %s', response.headers['Retry-After'])

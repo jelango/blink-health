@@ -11,7 +11,7 @@ if __name__ == '__main__':
     consumer, data_url = get_args()
     try:
         for data in consumer.read():
-            with open('/tmp/zendesk_{}.json'.format(consumer.consumer_type())) as fp:
+            with open('/tmp/zendesk_{}.json'.format(consumer.consumer_type()), mode='w') as fp:
                 json.dump(fp, data)
             consumer.checkpoint()
     finally:
