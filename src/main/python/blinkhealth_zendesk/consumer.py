@@ -53,6 +53,9 @@ class ZendeskConsumer(object):
     def process_raw(self, data):
         pass
 
+    @abc.abstractmethod
+    def load_silos(self, data):
+        pass
 
     def _load_state(self):
         default_state = {
@@ -123,6 +126,8 @@ class ZendeskConsumer(object):
             next_page = self.next_page or self.api_url
             headers, data = self.get(next_page)
 
+            self.load_silos(data)
+
             done = data['count'] < MAX_INCREMENTAL_EXPORT_BATCH_SIZE
 
             self.next_page = data['next_page']
@@ -135,19 +140,35 @@ class ZendeskConsumer(object):
 
 
 class IncrementalTicketConsumer(ZendeskConsumer):
+    usersmap = {}
+    orgsmap = {}
+
     def __init__(self, configuration_url, account, token):
         super().__init__(configuration_url,
-                         '{}/incremental/tickets.json?start_time=0&include=users'.format(BASE_URL),
+                         '{}/incremental/tickets.json?start_time=0&include=users,organizations'.format(BASE_URL),
                          account,
                          token)
 
     def consumer_type(self):
         return str(ZendeskConsumerType.tickets)
 
+    def load_silos(self, data):
+        users = data['users']
+        for user in users:
+            self.usersmap[user['id']] = user
+
+        #organizations = data['organizations']
+        #for org in organizations:
+            #self.orgsmap[org['id']] = org
+
     def process_raw(self, data):
         tickets = data['tickets']
         for ticket in tickets:
-            #print("ticket..." + str(ticket["id"]))
+            ticket['requester'] = self.usersmap[ticket['requester_id']]
+            ticket['submitter'] = self.usersmap[ticket['submitter_id']]
+
+            #ticket['organizations'] = self.orgsmap[ticket['organization_id']]
+            #print("ticket..." + json.dumps(ticket))
             yield ticket
 
 class IncrementalCallConsumer(ZendeskConsumer):
@@ -160,6 +181,9 @@ class IncrementalCallConsumer(ZendeskConsumer):
     def consumer_type(self):
         return str(ZendeskConsumerType.calls)
 
+
+    def load_silos(self, data):
+        pass
 
     def process_raw(self, data):
         calls = data['calls']
