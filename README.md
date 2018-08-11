@@ -38,7 +38,5 @@ MSCK REPAIR TABLE zendesk_export;
 
 Get distribution of tickets, calls by days:
 ```sql
-SELECT key, DATE(updated_at) as day, count 
-FROM zendesk_export
-GROUP BY key, DATE(updated_at)
+SELECT COUNT(*) FROM zendesk_export
 ```
